@@ -17,6 +17,8 @@
 //#define LOG_NDEBUG 0
 #define LOG_TAG "DrmHal"
 
+#include <binder/IActivityManager.h>
+#include <binder/IServiceManager.h>
 #include <mediadrm/DrmHal.h>
 #include <mediadrm/DrmHalAidl.h>
 #include <mediadrm/DrmHalHidl.h>
@@ -24,6 +26,24 @@
 #include <mediadrm/DrmUtils.h>
 
 namespace android {
+namespace {
+
+constexpr char kPropertyDeviceUniqueId[] = "deviceUniqueId";
+
+bool isDeviceUniqueIdAccessAllowed(const String8& appPackageName) {
+    sp<IServiceManager> serviceManager = defaultServiceManager();
+    if (serviceManager == nullptr) {
+        return false;
+    }
+    sp<IActivityManager> activityManager =
+            interface_cast<IActivityManager>(serviceManager->checkService(String16("activity")));
+    if (activityManager == nullptr) {
+        return false;
+    }
+    return activityManager->isMediaDrmDeviceUniqueIdAccessAllowed(String16(appPackageName.c_str()));
+}
+
+}  // namespace
 
 DrmHal::DrmHal() {
     mDrmHalHidl = sp<DrmHalHidl>::make();
@@ -48,6 +68,7 @@ DrmStatus DrmHal::isCryptoSchemeSupported(const uint8_t uuid[16], const String8&
 }
 
 DrmStatus DrmHal::createPlugin(const uint8_t uuid[16], const String8& appPackageName) {
+    mAppPackageName = appPackageName;
     return mDrmHalAidl->createPlugin(uuid, appPackageName) == OK
                    ? DrmStatus(OK)
                    : mDrmHalHidl->createPlugin(uuid, appPackageName);
@@ -186,11 +207,17 @@ DrmStatus DrmHal::getOfflineLicenseState(Vector<uint8_t> const& keySetId,
 }
 
 DrmStatus DrmHal::getPropertyString(String8 const& name, String8& value) const {
+    if (name == kPropertyDeviceUniqueId && !isDeviceUniqueIdAccessAllowed(mAppPackageName)) {
+        return DrmStatus(ERROR_DRM_CANNOT_HANDLE);
+    }
     if (mDrmHalAidl->initCheck() == OK) return mDrmHalAidl->getPropertyString(name, value);
     return mDrmHalHidl->getPropertyString(name, value);
 }
 
 DrmStatus DrmHal::getPropertyByteArray(String8 const& name, Vector<uint8_t>& value) const {
+    if (name == kPropertyDeviceUniqueId && !isDeviceUniqueIdAccessAllowed(mAppPackageName)) {
+        return DrmStatus(ERROR_DRM_CANNOT_HANDLE);
+    }
     if (mDrmHalAidl->initCheck() == OK) return mDrmHalAidl->getPropertyByteArray(name, value);
     return mDrmHalHidl->getPropertyByteArray(name, value);
 }

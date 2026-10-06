@@ -55,6 +55,8 @@ cc_library {
     defaults: ["android.hardware.drm-media_drm-ndk-shared"],
     shared_libs: [
         "libbinder_ndk",
+        "libbinder",
+        "libactivitymanager_aidl",
         "libcutils",
         "libdl",
         "liblog",

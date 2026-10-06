@@ -122,6 +122,7 @@ struct DrmHal : public IDrm {
 private:
     sp<IDrm> mDrmHalHidl;
     sp<IDrm> mDrmHalAidl;
+    String8 mAppPackageName;
     DISALLOW_EVIL_CONSTRUCTORS(DrmHal);
 };
 
